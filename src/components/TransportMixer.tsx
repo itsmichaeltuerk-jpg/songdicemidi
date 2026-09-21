@@ -262,8 +262,8 @@ export const TransportMixer: React.FC<TransportMixerProps> = ({
                   />
                 </div>
 
-                {/* Pan Slider */}
-                <div className="space-y-1">
+                {/* Pan Slider — desktop only; phone keeps volume + mute/solo */}
+                <div className="hidden space-y-1 sm:block">
                   <div className="flex items-center justify-between text-[10px] text-zinc-400 font-mono">
                     <span>Pan</span>
                     <span>

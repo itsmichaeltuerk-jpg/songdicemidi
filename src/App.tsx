@@ -361,44 +361,7 @@ export function App() {
       />
 
       {/* Main Workspace */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-6 space-y-6">
-        
-        {/* VIEW 1: DICE STUDIO TABLE */}
-        {activeTab === 'dice' && (
-          <DiceTable
-            dice={dice}
-            optionalDice={optionalDice}
-            isRolling={isRolling}
-            isGenerating={isGenerating}
-            onToggleLock={handleToggleLock}
-            onRollAll={handleRollAll}
-            onRollUnlocked={handleRollUnlocked}
-            onSelectFace={handleSelectFace}
-            onToggleOptionalDie={handleToggleOptionalDie}
-            vibe={vibe}
-            setVibe={setVibe}
-          />
-        )}
-
-        {/* VIEW 2: PIANO CHORD TAB & VOCAL COVER GENERATOR */}
-        {activeTab === 'piano_cover' && (
-          <PianoChordTabPanel
-            onGenerateCover={handleGenerateCover}
-            isGenerating={isGenerating}
-            vocalShift={vocalShift}
-            setVocalShift={setVocalShift}
-          />
-        )}
-
-        {/* ARRANGEMENT SUMMARY SPOTLIGHT */}
-        {currentArrangement && (
-          <ArrangementSummaryCard
-            arrangement={currentArrangement}
-            isFavorite={isCurrentFavorite}
-            onToggleFavorite={() => handleToggleFavorite()}
-            onSelectWorkflowTab={(tab) => setWorkbenchTab(tab)}
-          />
-        )}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
 
         {(aiMissedNotice || keepNotice || isGenerating) && (
           <div
@@ -408,13 +371,9 @@ export function App() {
             <span className="inline-flex rounded-full bg-white/10 px-3 py-1 text-amber-200">
               {aiMissedNotice || keepNotice || AI_GENERATING_LABEL}
             </span>
-            {takeSource === 'ai' && !aiMissedNotice && !isGenerating && (
-              <span className="ml-2 text-zinc-500">AI</span>
-            )}
           </div>
         )}
 
-        {/* ARRANGEMENT VISUALIZER (compact Door-style mix lanes) */}
         <ArrangementVisualizer
           arrangement={currentArrangement}
           currentBeat={currentBeat}
@@ -424,7 +383,6 @@ export function App() {
           onSeek={handleSeek}
         />
 
-        {/* TRANSPORT & 5-CHANNEL MULTI-TRACK MIXER */}
         <TransportMixer
           isPlaying={isPlaying}
           onPlay={handlePlay}
@@ -455,6 +413,40 @@ export function App() {
           tracks={tracks}
           onUpdateTrack={handleUpdateTrack}
         />
+
+        {activeTab === 'dice' && (
+          <DiceTable
+            dice={dice}
+            optionalDice={optionalDice}
+            isRolling={isRolling}
+            isGenerating={isGenerating}
+            onToggleLock={handleToggleLock}
+            onRollAll={handleRollAll}
+            onRollUnlocked={handleRollUnlocked}
+            onSelectFace={handleSelectFace}
+            onToggleOptionalDie={handleToggleOptionalDie}
+            vibe={vibe}
+            setVibe={setVibe}
+          />
+        )}
+
+        {activeTab === 'piano_cover' && (
+          <PianoChordTabPanel
+            onGenerateCover={handleGenerateCover}
+            isGenerating={isGenerating}
+            vocalShift={vocalShift}
+            setVocalShift={setVocalShift}
+          />
+        )}
+
+        {currentArrangement && (
+          <ArrangementSummaryCard
+            arrangement={currentArrangement}
+            isFavorite={isCurrentFavorite}
+            onToggleFavorite={() => handleToggleFavorite()}
+            onSelectWorkflowTab={(tab) => setWorkbenchTab(tab)}
+          />
+        )}
 
         {/* STUDIO WORKBENCH TOOLS & TAB BAR */}
         <div className="space-y-4">
