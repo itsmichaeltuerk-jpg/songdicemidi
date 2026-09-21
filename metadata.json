@@ -1,0 +1,7 @@
+{
+  "name": "Song Dice",
+  "description": "Tactile musical dice arranger & piano chord tab to multitrack MIDI backing generator for vocal covers and DAW music production.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
