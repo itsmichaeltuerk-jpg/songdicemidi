@@ -30,13 +30,20 @@ function apiServerPlugin(): Plugin {
               });
               res.setHeader('Content-Type', 'application/json');
               res.statusCode = 200;
-              res.end(JSON.stringify({ success: true, arrangement }));
+              res.end(JSON.stringify({ success: true, source: 'ai', arrangement }));
             } catch (err: any) {
               console.warn('[Vite Middleware] Handling with Pro Arranger fallback:', err?.message || err);
               const fallbackArr = composeArrangementFromPrompt({});
               res.setHeader('Content-Type', 'application/json');
               res.statusCode = 200;
-              res.end(JSON.stringify({ success: true, arrangement: fallbackArr }));
+              res.end(
+                JSON.stringify({
+                  success: false,
+                  source: 'local',
+                  reason: err?.message === 'no-key' ? 'no-key' : 'gemini-error',
+                  arrangement: fallbackArr,
+                }),
+              );
             }
           });
           return;

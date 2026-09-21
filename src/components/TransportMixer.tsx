@@ -17,6 +17,8 @@ interface TransportMixerProps {
   onPlay: () => void;
   onPause: () => void;
   onStop: () => void;
+  heardCurrentTake: boolean;
+  onKeep: () => void;
   bpm: number;
   setBpm: (bpm: number) => void;
   swing: number;
@@ -34,6 +36,8 @@ export const TransportMixer: React.FC<TransportMixerProps> = ({
   onPlay,
   onPause,
   onStop,
+  heardCurrentTake,
+  onKeep,
   bpm,
   setBpm,
   swing,
@@ -78,6 +82,20 @@ export const TransportMixer: React.FC<TransportMixerProps> = ({
             title="Stop & Reset to Bar 1"
           >
             <Square className="w-4 h-4 fill-zinc-400" />
+          </button>
+
+          <button
+            id="transport-keep-btn"
+            onClick={onKeep}
+            disabled={!heardCurrentTake}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
+              heardCurrentTake
+                ? 'bg-amber-400 text-zinc-950 border-amber-300 font-bold'
+                : 'bg-zinc-900 border-white/10 text-zinc-500'
+            }`}
+            title={heardCurrentTake ? 'Keep this heard take' : 'Play the take before Keep'}
+          >
+            Keep
           </button>
 
           {/* Loop Region Button */}
