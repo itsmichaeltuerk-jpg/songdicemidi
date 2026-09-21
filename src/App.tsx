@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { DEFAULT_DICE, OPTIONAL_DICE } from './services/diceConfig';
 import { SongArrangement, DieConfig, VibeModifiers, TrackMixerChannel } from './types/music';
 import { composeArrangementFromState } from './services/fallbackArranger';
@@ -14,7 +14,8 @@ import { ExportPanel } from './components/ExportPanel';
 import { RefinementBar } from './components/RefinementBar';
 import { HistoryModal } from './components/HistoryModal';
 import { TourModal } from './components/TourModal';
-import { Wand2, Mic, Download, Layers } from 'lucide-react';
+import { Wand2, Mic, Download } from 'lucide-react';
+import { landProduceOrLocal, AI_MISSED_TOAST, AI_GENERATING_LABEL } from './audio/doorPlayback.ts';
 
 export function App() {
   const [dice, setDice] = useState<DieConfig[]>(DEFAULT_DICE);
@@ -57,7 +58,11 @@ export function App() {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
   const [showTourModal, setShowTourModal] = useState<boolean>(false);
-  const [workbenchTab, setWorkbenchTab] = useState<'all' | 'export' | 'vocal' | 'refine'>('all');
+  const [aiMissedNotice, setAiMissedNotice] = useState<string | null>(null);
+  const [takeSource, setTakeSource] = useState<'ai' | 'local' | null>(null);
+  const [heardCurrentTake, setHeardCurrentTake] = useState(false);
+  const [keepNotice, setKeepNotice] = useState<string | null>(null);
+  const [workbenchTab, setWorkbenchTab] = useState<'all' | 'export' | 'vocal' | 'refine'>('export');
 
   // Audio playback listener
   useEffect(() => {
@@ -151,13 +156,23 @@ export function App() {
     refinementInstruction?: string
   ) => {
     setIsGenerating(true);
+    setAiMissedNotice(null);
+    setHeardCurrentTake(false);
     const activeDice = customDice || dice;
 
-    // Compose concise dice prompt string
     const diceSummary = activeDice
       .map((d) => `${d.name}: ${d.faces[d.selectedFaceIndex]?.label || ''}`)
       .join(' | ');
 
+    const localFallback = () =>
+      composeArrangementFromState({
+        dice: activeDice,
+        customTab: tabInput,
+        vibe,
+        sourceType: tabInput ? 'chord_tab' : refinementInstruction ? 'refinement' : 'dice_roll',
+      });
+
+    let produced = null;
     try {
       const response = await fetch('/api/generate-arrangement', {
         method: 'POST',
@@ -170,37 +185,25 @@ export function App() {
           existingArrangement: currentArrangement || undefined,
         }),
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.arrangement) {
-          const newArr = data.arrangement as SongArrangement;
-          setCurrentArrangement(newArr);
-          audioEngine.loadArrangement(newArr);
-          setBpm(newArr.bpm);
-          setSwing(newArr.swing);
-          saveArrangementToHistory(newArr);
-          setIsGenerating(false);
-          return;
-        }
+      const data = await response.json();
+      if (data.success && data.source === 'ai' && data.arrangement) {
+        produced = data.arrangement as SongArrangement;
       }
     } catch (err) {
       console.warn('Gemini API call returned error or offline, using fallback arranger:', err);
     }
 
-    // High quality algorithmic fallback
-    const fallbackArr = composeArrangementFromState({
-      dice: activeDice,
-      customTab: tabInput,
-      vibe,
-      sourceType: tabInput ? 'chord_tab' : refinementInstruction ? 'refinement' : 'dice_roll',
-    });
-
-    setCurrentArrangement(fallbackArr);
-    audioEngine.loadArrangement(fallbackArr);
-    setBpm(fallbackArr.bpm);
-    setSwing(fallbackArr.swing);
-    saveArrangementToHistory(fallbackArr);
+    const landed = landProduceOrLocal(produced, localFallback);
+    setCurrentArrangement(landed.arrangement);
+    audioEngine.loadArrangement(landed.arrangement);
+    setBpm(landed.arrangement.bpm);
+    setSwing(landed.arrangement.swing);
+    setTakeSource(landed.source);
+    if (landed.missed) {
+      setAiMissedNotice(AI_MISSED_TOAST);
+      window.setTimeout(() => setAiMissedNotice(null), 3000);
+    }
+    saveArrangementToHistory(landed.arrangement);
     setIsGenerating(false);
   };
 
@@ -253,9 +256,20 @@ export function App() {
 
   // Transport Handlers
   const handlePlay = () => {
+    setHeardCurrentTake(true);
     audioEngine.setBpm(bpm);
     audioEngine.setSwing(swing);
     audioEngine.play();
+  };
+
+  const handleKeep = () => {
+    if (!currentArrangement || !heardCurrentTake) return;
+    saveArrangementToHistory(currentArrangement);
+    if (!favorites.includes(currentArrangement.id)) {
+      handleToggleFavorite(currentArrangement.id);
+    }
+    setKeepNotice('Kept in Library');
+    window.setTimeout(() => setKeepNotice(null), 2500);
   };
 
   const handlePause = () => {
@@ -347,9 +361,59 @@ export function App() {
       />
 
       {/* Main Workspace */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-6 space-y-6">
-        
-        {/* VIEW 1: DICE STUDIO TABLE */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
+
+        {(aiMissedNotice || keepNotice || isGenerating) && (
+          <div
+            className="text-center text-xs font-mono"
+            data-toast={aiMissedNotice ? 'ai-missed' : keepNotice ? 'kept' : 'generating'}
+          >
+            <span className="inline-flex rounded-full bg-white/10 px-3 py-1 text-amber-200">
+              {aiMissedNotice || keepNotice || AI_GENERATING_LABEL}
+            </span>
+          </div>
+        )}
+
+        <ArrangementVisualizer
+          arrangement={currentArrangement}
+          currentBeat={currentBeat}
+          currentBar={currentBar}
+          totalBeats={(currentArrangement?.bars_total || 8) * 4}
+          isPlaying={isPlaying}
+          onSeek={handleSeek}
+        />
+
+        <TransportMixer
+          isPlaying={isPlaying}
+          onPlay={handlePlay}
+          onPause={handlePause}
+          onStop={handleStop}
+          heardCurrentTake={heardCurrentTake}
+          onKeep={handleKeep}
+          bpm={bpm}
+          setBpm={(newBpm) => {
+            setBpm(newBpm);
+            audioEngine.setBpm(newBpm);
+          }}
+          swing={swing}
+          setSwing={(newSwing) => {
+            setSwing(newSwing);
+            audioEngine.setSwing(newSwing);
+          }}
+          isLooping={isLooping}
+          setIsLooping={(loop) => {
+            setIsLooping(loop);
+            audioEngine.setLooping(loop);
+          }}
+          isMetronomeOn={isMetronomeOn}
+          setIsMetronomeOn={(on) => {
+            setIsMetronomeOn(on);
+            audioEngine.setMetronome(on);
+          }}
+          tracks={tracks}
+          onUpdateTrack={handleUpdateTrack}
+        />
+
         {activeTab === 'dice' && (
           <DiceTable
             dice={dice}
@@ -366,7 +430,6 @@ export function App() {
           />
         )}
 
-        {/* VIEW 2: PIANO CHORD TAB & VOCAL COVER GENERATOR */}
         {activeTab === 'piano_cover' && (
           <PianoChordTabPanel
             onGenerateCover={handleGenerateCover}
@@ -376,7 +439,6 @@ export function App() {
           />
         )}
 
-        {/* ARRANGEMENT SUMMARY SPOTLIGHT */}
         {currentArrangement && (
           <ArrangementSummaryCard
             arrangement={currentArrangement}
@@ -385,40 +447,6 @@ export function App() {
             onSelectWorkflowTab={(tab) => setWorkbenchTab(tab)}
           />
         )}
-
-        {/* ARRANGEMENT VISUALIZER (Piano Roll + Audio Spectrum) */}
-        <ArrangementVisualizer
-          arrangement={currentArrangement}
-          currentBeat={currentBeat}
-          currentBar={currentBar}
-          totalBeats={(currentArrangement?.bars_total || 8) * 4}
-          isPlaying={isPlaying}
-          onSeek={handleSeek}
-        />
-
-        {/* TRANSPORT & 5-CHANNEL MULTI-TRACK MIXER */}
-        <TransportMixer
-          isPlaying={isPlaying}
-          onPlay={handlePlay}
-          onPause={handlePause}
-          onStop={handleStop}
-          bpm={bpm}
-          setBpm={(newBpm) => {
-            setBpm(newBpm);
-            audioEngine.setBpm(newBpm);
-          }}
-          swing={swing}
-          setSwing={(newSwing) => {
-            setSwing(newSwing);
-            audioEngine.setSwing(newSwing);
-          }}
-          isLooping={isLooping}
-          setIsLooping={setIsLooping}
-          isMetronomeOn={isMetronomeOn}
-          setIsMetronomeOn={setIsMetronomeOn}
-          tracks={tracks}
-          onUpdateTrack={handleUpdateTrack}
-        />
 
         {/* STUDIO WORKBENCH TOOLS & TAB BAR */}
         <div className="space-y-4">
@@ -433,18 +461,6 @@ export function App() {
 
             {/* Workbench Segmented Control */}
             <div className="flex items-center p-1 bg-zinc-900/90 rounded-xl border border-white/10 text-xs font-semibold">
-              <button
-                onClick={() => setWorkbenchTab('all')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
-                  workbenchTab === 'all'
-                    ? 'bg-amber-500 text-zinc-950 font-bold shadow'
-                    : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                <Layers className="w-3.5 h-3.5" />
-                <span>All Tools</span>
-              </button>
-
               <button
                 onClick={() => setWorkbenchTab('export')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${

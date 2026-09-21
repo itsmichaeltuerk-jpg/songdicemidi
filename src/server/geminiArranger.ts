@@ -1,6 +1,5 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { SongArrangement } from '../types/music';
-import { composeArrangementFromPrompt } from '../services/proArranger';
 
 let aiClient: GoogleGenAI | null = null;
 
@@ -27,8 +26,7 @@ export async function generateArrangementWithGemini(payload: {
 }): Promise<SongArrangement> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    console.warn('[GeminiArranger] GEMINI_API_KEY not configured, using Pro Arranger studio engine.');
-    return composeArrangementFromPrompt(payload);
+    throw new Error('no-key');
   }
 
   try {
@@ -279,9 +277,8 @@ Return STRICT JSON matching the schema.`;
     };
 
     return song;
-  } catch (err: any) {
-    console.warn(`[GeminiArranger] Gemini API unavailable (${err?.message || err}). Seamlessly using Pro Arranger studio engine.`);
-    return composeArrangementFromPrompt(payload);
+  } catch (err) {
+    throw err;
   }
 }
 

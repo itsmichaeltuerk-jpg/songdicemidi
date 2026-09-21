@@ -26,11 +26,16 @@ app.post('/api/generate-arrangement', async (req: Request, res: Response) => {
       refinementInstruction,
       existingArrangement,
     });
-    res.json({ success: true, arrangement });
+    res.json({ success: true, source: 'ai', arrangement });
   } catch (error: any) {
     console.warn('Handling request with fallback arrangement:', error?.message || error);
     const arrangement = composeArrangementFromPrompt(req.body || {});
-    res.json({ success: true, arrangement });
+    res.json({
+      success: false,
+      source: 'local',
+      reason: error?.message === 'no-key' ? 'no-key' : 'gemini-error',
+      arrangement,
+    });
   }
 });
 
