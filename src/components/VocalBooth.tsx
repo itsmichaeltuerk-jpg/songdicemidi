@@ -65,78 +65,71 @@ export const VocalBooth: React.FC<VocalBoothProps> = ({
   };
 
   return (
-    <div className="w-full bg-gradient-to-b from-[#181A20] via-[#141519] to-[#121316] p-4 sm:p-6 rounded-3xl border border-white/10 shadow-2xl space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
+    <div className="w-full bg-[#14151C]/90 p-4 sm:p-5 rounded-2xl border border-white/10 shadow-xl space-y-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs uppercase tracking-wider font-extrabold text-rose-400 font-mono">
-              VOCAL SCRATCH BOOTH
-            </span>
-            <span className="text-zinc-500">•</span>
-            <span className="text-xs text-zinc-400 flex items-center gap-1">
-              <Headphones className="w-3.5 h-3.5 text-amber-400" /> Wear headphones while recording
-            </span>
-          </div>
-          <h3 className="text-base font-bold text-white tracking-tight mt-0.5 font-['Outfit']">
-            Record Vocal Cover Scratch Track Over Arrangement
+          <h3 className="text-sm font-bold text-white font-['Outfit']">
+            Vocal Scratch Track
           </h3>
+          <p className="text-xs text-zinc-400 flex items-center gap-1.5 mt-0.5">
+            <Headphones className="w-3.5 h-3.5 text-amber-400" />
+            Use headphones to prevent mic bleed
+          </p>
         </div>
 
-        {/* Big Record Button */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleToggleRecord}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-black tracking-wide uppercase transition-all shadow-xl active:scale-95 ${
-              isRecording
-                ? 'bg-rose-600 text-white animate-pulse shadow-rose-600/40 ring-2 ring-rose-400'
-                : 'bg-rose-500 hover:bg-rose-400 text-zinc-950 shadow-rose-500/25'
-            }`}
-          >
-            {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4 fill-zinc-950" />}
-            <span>{isRecording ? 'STOP RECORDING' : 'RECORD VOCAL COVER'}</span>
-          </button>
-        </div>
+        {/* Record Button */}
+        <button
+          onClick={handleToggleRecord}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all shadow-md active:scale-95 ${
+            isRecording
+              ? 'bg-rose-600 text-white animate-pulse shadow-rose-600/30'
+              : 'bg-rose-500 hover:bg-rose-400 text-zinc-950 shadow-rose-500/20'
+          }`}
+        >
+          {isRecording ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5 fill-zinc-950" />}
+          <span>{isRecording ? 'Stop Recording' : 'Record Scratch Vocal'}</span>
+        </button>
       </div>
 
       {recordingError && (
-        <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-300 text-xs flex items-center gap-2">
+        <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-300 text-xs flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{recordingError}</span>
         </div>
       )}
 
-      {/* Recorded Vocal Playback & Export Strip */}
+      {/* Recorded Vocal Playback Strip */}
       {vocalAudioUrl && (
-        <div className="p-4 bg-zinc-950/80 rounded-2xl border border-rose-500/30 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in">
+        <div className="p-3 bg-zinc-950/80 rounded-xl border border-rose-500/30 flex flex-col sm:flex-row items-center justify-between gap-3 animate-in fade-in">
           <div className="flex items-center gap-3">
             <button
               onClick={handlePlayRecordedVocal}
               disabled={isVocalPlaying}
-              className="w-10 h-10 rounded-xl bg-rose-500 hover:bg-rose-400 text-zinc-950 flex items-center justify-center shadow-lg transition-all"
+              className="w-8 h-8 rounded-lg bg-rose-500 hover:bg-rose-400 text-zinc-950 flex items-center justify-center shadow transition-all"
             >
-              {isVocalPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-zinc-950 ml-0.5" />}
+              {isVocalPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 fill-zinc-950 ml-0.5" />}
             </button>
             <div>
-              <div className="text-xs font-bold text-white">Vocal Cover Scratch Take 1</div>
-              <div className="text-[11px] text-zinc-400">Captured via browser microphone input</div>
+              <div className="text-xs font-bold text-white">Scratch Take</div>
+              <div className="text-[10px] text-zinc-500">Recorded from microphone</div>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <a
               href={vocalAudioUrl}
-              download="vocal-cover-scratch.webm"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-white/10 text-xs font-semibold transition-all"
+              download="vocal-scratch.webm"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-white/10 text-xs font-medium transition-all"
             >
-              <Download className="w-3.5 h-3.5 text-rose-400" />
-              <span>Download Audio</span>
+              <Download className="w-3 h-3 text-rose-400" />
+              <span>Download</span>
             </a>
             <button
               onClick={handleClearVocal}
-              className="p-1.5 rounded-xl bg-zinc-900 hover:bg-rose-500/20 text-zinc-400 hover:text-rose-300 border border-white/10 transition-all text-xs"
+              className="p-1.5 rounded-lg bg-zinc-900 hover:bg-rose-500/20 text-zinc-400 hover:text-rose-300 border border-white/10 transition-all"
               title="Delete Vocal Take"
             >
-              <Trash2 className="w-4 h-4" />
+              <Trash2 className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>

@@ -106,8 +106,31 @@ export interface SongArrangement {
   hook_reason: string;
   next_moves: string[];
   producer_brief?: string;
-  sourceType: 'dice_roll' | 'chord_tab' | 'refinement';
+  sourceType: 'dice_roll' | 'chord_tab' | 'refinement' | 'youtube_search';
   sourceTab?: string;
+  youtubeMetadata?: {
+    videoId?: string;
+    videoTitle?: string;
+    artist?: string;
+    channelTitle?: string;
+    thumbnailUrl?: string;
+    query?: string;
+    youtubeUrl?: string;
+  };
+}
+
+export interface YouTubeTrackItem {
+  id: string; // YouTube video ID or unique key
+  title: string;
+  artist: string;
+  thumbnailUrl: string;
+  estimatedKey?: string;
+  estimatedBpm?: number;
+  genre?: string;
+  duration?: string;
+  youtubeUrl?: string;
+  chordsSummary?: string;
+  description?: string;
 }
 
 export interface TrackMixerChannel {

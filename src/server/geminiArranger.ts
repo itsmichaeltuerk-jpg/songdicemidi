@@ -23,6 +23,11 @@ export async function generateArrangementWithGemini(payload: {
   vocalRange?: string;
   refinementInstruction?: string;
   existingArrangement?: Partial<SongArrangement>;
+  youtubeQuery?: string;
+  youtubeUrl?: string;
+  songTitle?: string;
+  artist?: string;
+  videoId?: string;
 }): Promise<SongArrangement> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -32,14 +37,21 @@ export async function generateArrangementWithGemini(payload: {
   try {
     const ai = getAiClient();
 
+    const isYouTube = Boolean(payload.youtubeQuery || payload.videoId || payload.songTitle);
+
     const prompt = `You are a platinum-level music producer, master arranger, and session pianist specializing in commercial bedroom pop, acoustic arrangements, and vocal cover backing tracks for DAWs (Ableton, Logic, FL Studio).
-Your task is to take the input musical state or chord tab and compose an elite, professional-grade, multi-track MIDI arrangement.
+Your task is to take the input musical state, YouTube song request, or chord tab and compose an elite, professional-grade, multi-track MIDI arrangement.
 
 INPUT BRIEF:
-- Musical Dice & Parameters: ${payload.dicePrompt}
+${isYouTube ? `- YOUTUBE MUSIC SOURCE:
+  Song: ${payload.songTitle || payload.youtubeQuery}
+  Artist: ${payload.artist || 'Original Artist'}
+  YouTube Reference: ${payload.youtubeUrl || payload.videoId || payload.youtubeQuery}
+  Task: Identify the authentic chords, key, tempo, and song structure from this YouTube song and arrange a complete DAW-ready multi-track MIDI cover.` : ''}
+${payload.dicePrompt ? `- Musical Dice & Parameters: ${payload.dicePrompt}` : ''}
 ${payload.chordTab ? `- Piano Chord Tab / Song to Cover:\n${payload.chordTab}` : ''}
 ${payload.vocalRange ? `- Target Vocal Range / Transposition: ${payload.vocalRange}` : ''}
-${payload.refinementInstruction ? `- Producer Refinement Directive: ${payload.refinementInstruction}` : ''}
+${payload.refinementInstruction ? `- Producer Refinement / Performance Style Directive: ${payload.refinementInstruction}` : ''}
 
 CRITICAL RULES FOR PROFESSIONAL HIGH-QUALITY MIDI ARRANGEMENTS:
 1. OPTIMAL VOICE LEADING FOR PIANO (Crucial):
@@ -76,7 +88,7 @@ CRITICAL RULES FOR PROFESSIONAL HIGH-QUALITY MIDI ARRANGEMENTS:
 Return STRICT JSON matching the schema.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.7-flash',
+      model: process.env.GEMINI_MODEL || 'gemini-3.8-flash',
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
@@ -272,12 +284,39 @@ Return STRICT JSON matching the schema.`;
       next_moves: Array.isArray(rawJson.next_moves)
         ? rawJson.next_moves
         : ['Import MIDI into DAW', 'Set tempo', 'Record vocals'],
-      sourceType: payload.chordTab ? 'chord_tab' : payload.refinementInstruction ? 'refinement' : 'dice_roll',
+      sourceType: (payload.youtubeQuery || payload.videoId || payload.songTitle)
+        ? 'youtube_search'
+        : payload.chordTab
+        ? 'chord_tab'
+        : payload.refinementInstruction
+        ? 'refinement'
+        : 'dice_roll',
       sourceTab: payload.chordTab,
+      youtubeMetadata: (payload.youtubeQuery || payload.videoId || payload.songTitle)
+        ? {
+            videoId: payload.videoId,
+            videoTitle: payload.songTitle || rawJson.title_working,
+            artist: payload.artist,
+            thumbnailUrl: payload.videoId ? `https://img.youtube.com/vi/${payload.videoId}/hqdefault.jpg` : undefined,
+            query: payload.youtubeQuery,
+            youtubeUrl: payload.youtubeUrl || (payload.videoId ? `https://www.youtube.com/watch?v=${payload.videoId}` : undefined),
+          }
+        : undefined,
     };
 
     return song;
-  } catch (err) {
+  } catch (err: any) {
+    const rawMsg = typeof err === 'string' ? err : err?.message || JSON.stringify(err || {});
+    if (
+      rawMsg.includes('402') ||
+      rawMsg.includes('prepayment credits are depleted') ||
+      rawMsg.includes('RESOURCE_EXHAUSTED')
+    ) {
+      const creditError = new Error('prepayment-credits-depleted');
+      (creditError as any).code = 402;
+      (creditError as any).isCreditsDepleted = true;
+      throw creditError;
+    }
     throw err;
   }
 }

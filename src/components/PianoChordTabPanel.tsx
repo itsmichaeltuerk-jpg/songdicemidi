@@ -9,6 +9,7 @@ import {
   RefreshCw,
   Info,
   Check,
+  Youtube,
 } from 'lucide-react';
 import {
   SONG_COVER_PRESETS,
@@ -27,6 +28,7 @@ interface PianoChordTabPanelProps {
   isGenerating: boolean;
   vocalShift: number;
   setVocalShift: (shift: number) => void;
+  onSwitchToYouTube?: () => void;
 }
 
 export const PianoChordTabPanel: React.FC<PianoChordTabPanelProps> = ({
@@ -34,6 +36,7 @@ export const PianoChordTabPanel: React.FC<PianoChordTabPanelProps> = ({
   isGenerating,
   vocalShift,
   setVocalShift,
+  onSwitchToYouTube,
 }) => {
   const [selectedPresetId, setSelectedPresetId] = useState<string>('hey_there_delilah');
   const [tabText, setTabText] = useState<string>(SONG_COVER_PRESETS[0].tabText);
@@ -132,6 +135,36 @@ export const PianoChordTabPanel: React.FC<PianoChordTabPanelProps> = ({
           <span>{isGenerating ? 'Arranging Cover...' : 'Arrange Vocal Cover MIDI'}</span>
         </button>
       </div>
+
+      {/* Banner: Quick Switch to YouTube Search */}
+      {onSwitchToYouTube && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 bg-gradient-to-r from-red-950/40 via-zinc-900 to-amber-950/30 rounded-2xl border border-red-500/20">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-red-500/20 flex items-center justify-center text-red-400 border border-red-500/30 shrink-0">
+              <Youtube className="w-4 h-4 fill-current" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-white flex items-center gap-1.5">
+                <span>Want to skip pasting tabs entirely?</span>
+                <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 bg-red-500/20 text-red-300 rounded font-semibold">
+                  NEW
+                </span>
+              </p>
+              <p className="text-[11px] text-zinc-400 mt-0.5">
+                Search any song on YouTube or YouTube Music to extract authentic chords and generate MIDI automatically.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onSwitchToYouTube}
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white text-xs font-bold font-mono tracking-wide flex items-center gap-1.5 transition-all shadow-md shadow-red-600/20 shrink-0"
+          >
+            <Youtube className="w-3.5 h-3.5 fill-current" />
+            <span>Search on YouTube</span>
+          </button>
+        </div>
+      )}
 
       {/* Cover Song Preset Buttons */}
       <div>

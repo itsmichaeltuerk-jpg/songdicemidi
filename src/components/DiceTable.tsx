@@ -72,53 +72,44 @@ export const DiceTable: React.FC<DiceTableProps> = ({
       <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Top Bar of Studio Table: Studio Status Light + Roll Controls */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 pb-5 border-b border-white/5">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <span className="text-xs uppercase tracking-wider font-extrabold text-amber-400 font-mono">
-              STUDIO TABLE
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-5 pb-4 border-b border-white/10">
+        <div className="flex items-center gap-3">
+          <h2 className="text-base font-extrabold text-white tracking-tight font-['Outfit'] flex items-center gap-2">
+            <span>Studio Dice</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 font-mono font-medium">
+              {lockedCount}/{dice.length} locked
             </span>
-            <span className="text-zinc-500">•</span>
-            {isGenerating ? (
-              <div className="flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold animate-pulse">
-                <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-                <span>PRODUCING ARRANGEMENT...</span>
-              </div>
-            ) : (
-              <span className="text-xs text-zinc-400">
-                {lockedCount > 0
-                  ? `${lockedCount} locked (${dice.length - lockedCount} will roll)`
-                  : 'Tap any die to lock it in place'}
-              </span>
-            )}
-          </div>
-          <h2 className="text-lg font-bold text-white tracking-tight mt-0.5 font-['Outfit']">
-            Musical Dice Arranger
           </h2>
+          {isGenerating && (
+            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold animate-pulse font-mono">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+              <span>PRODUCING...</span>
+            </div>
+          )}
         </div>
 
         {/* Primary Roll Actions */}
-        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
           {/* Vibe Sliders Toggle */}
           <button
             onClick={() => setShowVibeSliders(!showVibeSliders)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
               showVibeSliders
                 ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
-                : 'bg-zinc-900 border-white/10 text-zinc-300 hover:bg-zinc-800'
+                : 'bg-zinc-900/80 border-white/10 text-zinc-400 hover:text-zinc-200'
             }`}
           >
             <Flame className="w-3.5 h-3.5 text-amber-400" />
-            <span>Vibe Biases</span>
+            <span>Biases</span>
           </button>
 
           {/* Optional Dice Tray Toggle */}
           <button
             onClick={() => setShowOptionalTray(!showOptionalTray)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
               showOptionalTray
                 ? 'bg-purple-500/20 border-purple-500/40 text-purple-300'
-                : 'bg-zinc-900 border-white/10 text-zinc-300 hover:bg-zinc-800'
+                : 'bg-zinc-900/80 border-white/10 text-zinc-400 hover:text-zinc-200'
             }`}
           >
             <Plus className="w-3.5 h-3.5" />
@@ -130,10 +121,10 @@ export const DiceTable: React.FC<DiceTableProps> = ({
             id="roll-unlocked-btn"
             onClick={onRollUnlocked}
             disabled={isRolling || isGenerating || lockedCount === dice.length}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 disabled:pointer-events-none text-zinc-200 text-xs font-bold border border-white/10 shadow-lg hover:border-amber-500/40 transition-all active:scale-95"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 disabled:pointer-events-none text-zinc-200 text-xs font-bold border border-white/10 shadow hover:border-amber-500/30 transition-all active:scale-95"
           >
             <RotateCw className={`w-3.5 h-3.5 ${isRolling ? 'animate-spin' : ''}`} />
-            <span>REROLL UNLOCKED</span>
+            <span>Reroll</span>
           </button>
 
           {/* Big ROLL ALL button */}
@@ -141,10 +132,10 @@ export const DiceTable: React.FC<DiceTableProps> = ({
             id="roll-all-btn"
             onClick={onRollAll}
             disabled={isRolling || isGenerating}
-            className="relative group flex items-center gap-2.5 px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 text-xs font-black tracking-wide uppercase shadow-xl shadow-amber-500/25 border border-amber-400/50 transition-all active:scale-95 disabled:opacity-60"
+            className="relative flex items-center gap-2 px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-black tracking-wide uppercase shadow-lg shadow-amber-500/20 transition-all active:scale-95 disabled:opacity-60"
           >
-            <Sparkles className="w-4 h-4 fill-zinc-950" />
-            <span>ROLL ALL DICE</span>
+            <Sparkles className="w-3.5 h-3.5 fill-zinc-950" />
+            <span>Roll All</span>
             {isRolling && (
               <span className="absolute inset-0 bg-amber-400/30 rounded-xl animate-pulse" />
             )}
@@ -256,9 +247,9 @@ export const DiceTable: React.FC<DiceTableProps> = ({
       )}
 
       {/* THE DICE GRID — Tactile Oversized 3D Cubes */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
         {/* Render core dice + enabled optional dice */}
-        {[...dice, ...optionalDice.filter((d) => d.enabled)].map((die, index) => {
+        {[...dice, ...optionalDice.filter((d) => d.enabled)].map((die) => {
           const currentFace = die.faces[die.selectedFaceIndex] || die.faces[0];
           const isLocked = die.isLocked;
 
@@ -266,20 +257,20 @@ export const DiceTable: React.FC<DiceTableProps> = ({
             <div
               key={die.id}
               onClick={() => handleDieClick(die)}
-              className={`group relative flex flex-col justify-between p-4 rounded-2xl transition-all duration-300 cursor-pointer select-none border ${
+              className={`group relative flex flex-col justify-between p-3.5 rounded-2xl transition-all duration-200 cursor-pointer select-none border ${
                 isLocked
-                  ? 'bg-gradient-to-b from-[#252018] to-[#1A1814] border-amber-500/50 shadow-xl shadow-amber-500/10 ring-1 ring-amber-500/30'
-                  : 'bg-gradient-to-b from-zinc-900 to-zinc-950 border-white/10 hover:border-amber-500/30 hover:shadow-xl hover:shadow-black/50'
+                  ? 'bg-zinc-900/90 border-amber-500/60 shadow-lg shadow-amber-500/10 ring-1 ring-amber-500/30'
+                  : 'bg-zinc-950/80 border-white/10 hover:border-amber-500/30 hover:bg-zinc-900/70'
               } ${isRolling && !isLocked ? 'animate-[bounce_0.6s_ease-in-out_infinite]' : ''}`}
             >
               {/* Top Row: Die Category + Lock Badge + Manual Edit Icon */}
-              <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="flex items-center justify-between gap-1.5 mb-1.5">
                 <div className="flex items-center gap-1.5">
                   <span
-                    className="w-2 h-2 rounded-full"
+                    className="w-1.5 h-1.5 rounded-full"
                     style={{ backgroundColor: die.color || '#F59E0B' }}
                   />
-                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-400 font-mono">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 font-mono">
                     {die.shortName}
                   </span>
                 </div>
@@ -289,17 +280,17 @@ export const DiceTable: React.FC<DiceTableProps> = ({
                   <button
                     onClick={(e) => handleEditDieFace(e, die)}
                     title="Manually choose a face"
-                    className="p-1 rounded-lg text-zinc-500 hover:text-amber-300 hover:bg-white/10 transition-colors"
+                    className="p-1 rounded text-zinc-500 hover:text-amber-300 hover:bg-white/10 transition-colors"
                   >
-                    <Edit3 className="w-3.5 h-3.5" />
+                    <Edit3 className="w-3 h-3" />
                   </button>
 
                   {/* Lock Indicator */}
                   <div
-                    className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all ${
+                    className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold transition-all ${
                       isLocked
-                        ? 'bg-amber-500 text-zinc-950 font-black shadow-sm'
-                        : 'bg-zinc-800/80 text-zinc-400 group-hover:text-zinc-200'
+                        ? 'bg-amber-400 text-zinc-950 font-black'
+                        : 'bg-zinc-800 text-zinc-400 group-hover:text-zinc-200'
                     }`}
                   >
                     {isLocked ? <Lock className="w-2.5 h-2.5" /> : <Unlock className="w-2.5 h-2.5" />}
@@ -309,7 +300,7 @@ export const DiceTable: React.FC<DiceTableProps> = ({
               </div>
 
               {/* Center: Main Die Face Typography */}
-              <div className="py-2.5">
+              <div className="py-2">
                 <div className="text-base sm:text-lg font-black text-white tracking-tight leading-snug group-hover:text-amber-200 transition-colors font-['Outfit']">
                   {currentFace.label}
                 </div>
@@ -318,27 +309,21 @@ export const DiceTable: React.FC<DiceTableProps> = ({
                     {currentFace.sublabel}
                   </div>
                 )}
-                <p className="text-[11px] text-zinc-400 line-clamp-2 mt-1 leading-relaxed">
-                  {currentFace.description}
-                </p>
               </div>
 
-              {/* Bottom Row: Tag Badge + Action Hint */}
-              <div className="flex items-center justify-between pt-2 border-t border-white/5 mt-1">
+              {/* Bottom Row: Tag Badge */}
+              <div className="flex items-center justify-between pt-2 border-t border-white/5">
                 {currentFace.tag ? (
-                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-white/5 text-zinc-300 font-mono">
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-zinc-400 font-mono">
                     {currentFace.tag}
                   </span>
                 ) : (
                   <span />
                 )}
-                <span className="text-[10px] text-zinc-500 group-hover:text-zinc-300 transition-colors">
-                  {isLocked ? 'Tap to unlock' : 'Tap to lock'}
+                <span className="text-[10px] text-zinc-500 group-hover:text-amber-300/80 transition-colors font-mono">
+                  {isLocked ? 'Locked' : 'Unlocked'}
                 </span>
               </div>
-
-              {/* Corner 3D Bevel Highlight */}
-              <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
             </div>
           );
         })}

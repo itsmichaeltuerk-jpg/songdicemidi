@@ -9,10 +9,15 @@ import {
   Sliders,
   Bell,
   Radio,
+  Plus,
+  Minus,
+  Layers,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { TrackMixerChannel } from '../types/music';
 
-interface TransportMixerProps {
+export interface StickyTransportProps {
   isPlaying: boolean;
   onPlay: () => void;
   onPause: () => void;
@@ -27,11 +32,17 @@ interface TransportMixerProps {
   setIsLooping: (loop: boolean) => void;
   isMetronomeOn: boolean;
   setIsMetronomeOn: (on: boolean) => void;
-  tracks: Record<string, TrackMixerChannel>;
-  onUpdateTrack: (name: string, updates: Partial<TrackMixerChannel>) => void;
+  currentBar?: number;
+  currentBeat?: number;
+  totalBars?: number;
+  onToggleMixerSection?: () => void;
+  isMixerCollapsed?: boolean;
+  onExpandAll?: () => void;
+  onCollapseAll?: () => void;
+  allCollapsed?: boolean;
 }
 
-export const TransportMixer: React.FC<TransportMixerProps> = ({
+export const StickyTransport: React.FC<StickyTransportProps> = ({
   isPlaying,
   onPlay,
   onPause,
@@ -46,114 +57,156 @@ export const TransportMixer: React.FC<TransportMixerProps> = ({
   setIsLooping,
   isMetronomeOn,
   setIsMetronomeOn,
-  tracks,
-  onUpdateTrack,
+  currentBar = 1,
+  currentBeat = 0,
+  totalBars = 8,
+  onToggleMixerSection,
+  isMixerCollapsed = false,
+  onExpandAll,
+  onCollapseAll,
+  allCollapsed = false,
 }) => {
+  const beatInBar = (Math.floor(currentBeat) % 4) + 1;
+  const isDownbeat = beatInBar === 1 && isPlaying;
+
   return (
-    <div className="w-full bg-gradient-to-b from-[#181A20] via-[#141519] to-[#121316] p-4 sm:p-6 rounded-3xl border border-white/10 shadow-2xl space-y-5">
-      
-      {/* Top Row: Master Transport Controls & Global Tempo */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-white/10">
+    <div className="sticky top-0 md:top-[57px] z-30 transition-all">
+      <div className="w-full bg-[#13141B]/95 backdrop-blur-md px-3 sm:px-4 py-2 rounded-2xl border border-white/10 shadow-xl flex items-center justify-between gap-2 sm:gap-4 flex-wrap">
         
-        {/* Playback Transport Buttons */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          {/* Play/Pause Button */}
+        {/* Left: Playback & Position */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Play/Pause */}
           <button
             id="transport-play-btn"
             onClick={isPlaying ? onPause : onPlay}
-            className={`flex items-center justify-center w-12 h-12 rounded-2xl shadow-xl transition-all active:scale-95 ${
+            className={`flex items-center justify-center w-10 h-10 rounded-xl shadow-lg transition-all active:scale-95 ${
               isPlaying
                 ? 'bg-amber-400 text-zinc-950 shadow-amber-500/30 ring-2 ring-amber-300'
-                : 'bg-gradient-to-br from-amber-500 to-amber-600 text-zinc-950 hover:from-amber-400 hover:to-amber-500 shadow-amber-500/20'
+                : 'bg-amber-500 hover:bg-amber-400 text-zinc-950 shadow-amber-500/20'
             }`}
+            title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
           >
             {isPlaying ? (
-              <Pause className="w-5 h-5 fill-zinc-950" />
+              <Pause className="w-4 h-4 fill-zinc-950" />
             ) : (
-              <Play className="w-5 h-5 fill-zinc-950 ml-0.5" />
+              <Play className="w-4 h-4 fill-zinc-950 ml-0.5" />
             )}
           </button>
 
-          {/* Stop Button */}
+          {/* Stop */}
           <button
             id="transport-stop-btn"
             onClick={onStop}
-            className="flex items-center justify-center w-10 h-10 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-white/10 transition-all active:scale-95"
+            className="flex items-center justify-center w-8 h-8 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-white/10 transition-all active:scale-95"
             title="Stop & Reset to Bar 1"
           >
-            <Square className="w-4 h-4 fill-zinc-400" />
+            <Square className="w-3 h-3 fill-current" />
           </button>
 
+          {/* Keep */}
           <button
             id="transport-keep-btn"
             onClick={onKeep}
             disabled={!heardCurrentTake}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
               heardCurrentTake
-                ? 'bg-amber-400 text-zinc-950 border-amber-300 font-bold'
-                : 'bg-zinc-900 border-white/10 text-zinc-500'
+                ? 'bg-amber-400 text-zinc-950 border-amber-300 font-bold shadow-sm'
+                : 'bg-zinc-900/60 border-white/5 text-zinc-500 cursor-not-allowed opacity-50'
             }`}
-            title={heardCurrentTake ? 'Keep this heard take' : 'Play the take before Keep'}
+            title={heardCurrentTake ? 'Save take to library' : 'Listen through to Keep'}
           >
-            Keep
+            <Radio className={`w-3.5 h-3.5 ${heardCurrentTake ? 'animate-pulse text-zinc-950' : ''}`} />
+            <span>Keep</span>
           </button>
 
-          {/* Loop Region Button */}
+          {/* Real-Time Position LED display */}
+          <div className="flex items-center gap-2 bg-zinc-950/80 px-2.5 py-1.5 rounded-xl border border-white/10 font-mono text-xs">
+            <div
+              className={`w-2 h-2 rounded-full transition-all ${
+                isDownbeat
+                  ? 'bg-amber-400 shadow-[0_0_6px_#f59e0b]'
+                  : isPlaying
+                  ? 'bg-amber-900/80'
+                  : 'bg-zinc-700'
+              }`}
+              title="Downbeat indicator"
+            />
+            <span className="font-bold text-amber-300">
+              Bar {currentBar}<span className="text-zinc-500">/{totalBars}</span>
+            </span>
+            <span className="text-zinc-600">•</span>
+            <span className={`text-[11px] ${isDownbeat ? 'text-amber-400 font-bold' : 'text-zinc-400'}`}>
+              Beat {beatInBar}
+            </span>
+          </div>
+        </div>
+
+        {/* Right: Controls & Parameters */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5 flex-wrap">
+          
+          {/* Loop Button */}
           <button
             id="transport-loop-btn"
             onClick={() => setIsLooping(!isLooping)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
+            className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1 ${
               isLooping
                 ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
-                : 'bg-zinc-900 border-white/10 text-zinc-500 hover:text-zinc-300'
+                : 'bg-zinc-900/80 border-white/10 text-zinc-500 hover:text-zinc-300'
             }`}
+            title="Toggle Loop"
           >
             <Repeat className="w-3.5 h-3.5" />
-            <span>Loop</span>
+            <span className="hidden sm:inline">Loop</span>
           </button>
 
-          {/* Metronome / Click */}
+          {/* Metronome */}
           <button
             id="transport-click-btn"
             onClick={() => setIsMetronomeOn(!isMetronomeOn)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
+            className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1 ${
               isMetronomeOn
                 ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
-                : 'bg-zinc-900 border-white/10 text-zinc-500 hover:text-zinc-300'
+                : 'bg-zinc-900/80 border-white/10 text-zinc-500 hover:text-zinc-300'
             }`}
+            title="Toggle Click"
           >
             <Bell className="w-3.5 h-3.5" />
-            <span>Click</span>
+            <span className="hidden sm:inline">Click</span>
           </button>
-        </div>
 
-        {/* Global Tempo & Swing Sliders */}
-        <div className="flex items-center gap-4 sm:gap-6">
-          {/* BPM */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono font-bold text-zinc-400">BPM:</span>
+          {/* BPM Stepper */}
+          <div className="flex items-center gap-1 bg-zinc-950/80 px-2 py-1 rounded-xl border border-white/10 font-mono text-xs">
+            <button
+              onClick={() => setBpm(Math.max(40, bpm - 1))}
+              className="w-4 h-4 flex items-center justify-center rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white"
+              title="Decrease BPM"
+            >
+              <Minus className="w-2.5 h-2.5" />
+            </button>
+
             <input
               type="number"
               min={40}
               max={240}
               value={bpm}
               onChange={(e) => setBpm(Math.max(40, Math.min(240, Number(e.target.value) || 120)))}
-              className="w-16 bg-zinc-950 border border-white/15 rounded-lg px-2 py-1 text-xs font-mono font-black text-amber-400 text-center focus:outline-none focus:border-amber-400"
+              className="w-10 bg-transparent text-center font-bold text-amber-400 focus:outline-none text-xs"
             />
-            <input
-              type="range"
-              min={50}
-              max={180}
-              value={bpm}
-              onChange={(e) => setBpm(Number(e.target.value))}
-              className="w-20 sm:w-28 accent-amber-500 h-1.5 bg-zinc-800 rounded-lg cursor-pointer"
-            />
+            <span className="text-[10px] text-zinc-500 font-bold">BPM</span>
+
+            <button
+              onClick={() => setBpm(Math.min(240, bpm + 1))}
+              className="w-4 h-4 flex items-center justify-center rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white"
+              title="Increase BPM"
+            >
+              <Plus className="w-2.5 h-2.5" />
+            </button>
           </div>
 
           {/* Swing */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono font-bold text-zinc-400">Groove Swing:</span>
-            <span className="text-xs font-mono text-amber-300 font-bold w-9 text-right">
+          <div className="hidden lg:flex items-center gap-1.5 bg-zinc-950/80 px-2 py-1 rounded-xl border border-white/10 font-mono text-xs">
+            <span className="text-[10px] text-zinc-500 font-bold">SWING</span>
+            <span className="text-amber-300 font-bold text-[11px] w-6 text-right">
               {Math.round(swing * 100)}%
             </span>
             <input
@@ -163,132 +216,168 @@ export const TransportMixer: React.FC<TransportMixerProps> = ({
               step={0.01}
               value={swing}
               onChange={(e) => setSwing(Number(e.target.value))}
-              className="w-16 sm:w-24 accent-amber-500 h-1.5 bg-zinc-800 rounded-lg cursor-pointer"
+              className="w-12 accent-amber-500 h-1 bg-zinc-800 rounded-lg cursor-pointer"
             />
           </div>
+
+          {/* Quick Mixer Toggle */}
+          {onToggleMixerSection && (
+            <button
+              onClick={onToggleMixerSection}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                !isMixerCollapsed
+                  ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                  : 'bg-zinc-900/80 border-white/10 text-zinc-400 hover:text-zinc-200'
+              }`}
+              title="Toggle Stem Mixer"
+            >
+              <Sliders className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden xl:inline">Mixer</span>
+            </button>
+          )}
+
+          {/* Expand/Collapse All */}
+          {(onExpandAll || onCollapseAll) && (
+            <button
+              onClick={allCollapsed ? onExpandAll : onCollapseAll}
+              className="p-1.5 rounded-xl bg-zinc-900/80 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 border border-white/10 transition-all text-xs"
+              title={allCollapsed ? 'Expand All' : 'Collapse All'}
+            >
+              <Layers className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
+
       </div>
+    </div>
+  );
+};
 
-      {/* 5-Channel Track Mixer Strip */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2">
-            <Sliders className="w-3.5 h-3.5 text-amber-400" />
-            <span>DAW Multi-Track Studio Mixer</span>
-          </span>
-          <span className="text-[11px] text-zinc-400">
-            Adjust individual stems for vocal tracking & monitoring
-          </span>
-        </div>
+export interface StemMixerProps {
+  tracks: Record<string, TrackMixerChannel>;
+  onUpdateTrack: (name: string, updates: Partial<TrackMixerChannel>) => void;
+}
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {(Object.entries(tracks) as [string, TrackMixerChannel][]).map(([name, track]) => {
-            const isMuted = track.mute || track.muted;
-            const isSoloed = track.solo;
+export const StemMixer: React.FC<StemMixerProps> = ({ tracks, onUpdateTrack }) => {
+  return (
+    <div className="w-full bg-[#14151C]/90 p-3 sm:p-4 rounded-2xl border border-white/10 shadow-xl space-y-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+        {(Object.entries(tracks) as [string, TrackMixerChannel][]).map(([name, track]) => {
+          const isMuted = track.mute || track.muted;
+          const isSoloed = track.solo;
 
-            // Track color mapping
-            const colorMap: Record<string, string> = {
-              melody: 'border-cyan-500/30 text-cyan-300',
-              chords: 'border-amber-500/30 text-amber-300',
-              pad: 'border-yellow-500/30 text-yellow-300',
-              bass: 'border-pink-500/30 text-pink-300',
-              drums: 'border-emerald-500/30 text-emerald-300',
-            };
+          const colorMap: Record<string, string> = {
+            melody: 'border-cyan-500/30 text-cyan-300',
+            chords: 'border-amber-500/30 text-amber-300',
+            pad: 'border-yellow-500/30 text-yellow-300',
+            bass: 'border-pink-500/30 text-pink-300',
+            drums: 'border-emerald-500/30 text-emerald-300',
+          };
 
-            const trackColor = colorMap[name] || 'border-white/10 text-white';
+          const trackNames: Record<string, string> = {
+            melody: 'Melody',
+            chords: 'Chords',
+            pad: 'Pad',
+            bass: 'Bass',
+            drums: 'Drums',
+          };
 
-            return (
-              <div
-                key={name}
-                className={`p-3 bg-zinc-950/80 rounded-2xl border transition-all flex flex-col justify-between space-y-2.5 ${trackColor}`}
-              >
-                {/* Channel Header & Mute/Solo */}
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold font-mono uppercase truncate">
-                    {name === 'melody'
-                      ? 'Melody (Guide)'
-                      : name === 'chords'
-                      ? 'Piano Chords'
-                      : name === 'pad'
-                      ? 'Pad Texture'
-                      : name === 'bass'
-                      ? 'Bass Line'
-                      : 'Drums / Beat'}
-                  </span>
+          const trackColor = colorMap[name] || 'border-white/10 text-white';
 
-                  <div className="flex items-center gap-1">
-                    {/* Mute */}
-                    <button
-                      onClick={() => onUpdateTrack(name, { muted: !isMuted })}
-                      className={`w-6 h-6 rounded-md text-[10px] font-black font-mono flex items-center justify-center border transition-all ${
-                        isMuted
-                          ? 'bg-rose-500 text-zinc-950 border-rose-400 font-bold'
-                          : 'bg-zinc-900 border-white/10 text-zinc-400 hover:text-white'
-                      }`}
-                      title="Mute Track"
-                    >
-                      M
-                    </button>
+          return (
+            <div
+              key={name}
+              className={`p-2.5 bg-zinc-950/80 rounded-xl border transition-all flex flex-col justify-between space-y-2 ${trackColor}`}
+            >
+              {/* Channel Header & M/S */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold font-mono uppercase truncate">
+                  {trackNames[name] || name}
+                </span>
 
-                    {/* Solo */}
-                    <button
-                      onClick={() => onUpdateTrack(name, { solo: !isSoloed })}
-                      className={`w-6 h-6 rounded-md text-[10px] font-black font-mono flex items-center justify-center border transition-all ${
-                        isSoloed
-                          ? 'bg-amber-400 text-zinc-950 border-amber-300 font-bold'
-                          : 'bg-zinc-900 border-white/10 text-zinc-400 hover:text-white'
-                      }`}
-                      title="Solo Track"
-                    >
-                      S
-                    </button>
-                  </div>
-                </div>
+                <div className="flex items-center gap-1">
+                  {/* Mute */}
+                  <button
+                    onClick={() => onUpdateTrack(name, { muted: !isMuted })}
+                    className={`w-5 h-5 rounded text-[9px] font-black font-mono flex items-center justify-center border transition-all ${
+                      isMuted
+                        ? 'bg-rose-500 text-zinc-950 border-rose-400'
+                        : 'bg-zinc-900 border-white/10 text-zinc-400 hover:text-white'
+                    }`}
+                    title="Mute Track"
+                  >
+                    M
+                  </button>
 
-                {/* Volume Fader */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[10px] text-zinc-400 font-mono">
-                    <span>Vol</span>
-                    <span>{Math.round(track.volume * 100)}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={1.2}
-                    step={0.01}
-                    value={track.volume}
-                    onChange={(e) => onUpdateTrack(name, { volume: Number(e.target.value) })}
-                    className="w-full accent-amber-400 h-1.5 bg-zinc-800 rounded-lg cursor-pointer"
-                  />
-                </div>
-
-                {/* Pan Slider — desktop only; phone keeps volume + mute/solo */}
-                <div className="hidden space-y-1 sm:block">
-                  <div className="flex items-center justify-between text-[10px] text-zinc-400 font-mono">
-                    <span>Pan</span>
-                    <span>
-                      {track.pan === 0
-                        ? 'C'
-                        : track.pan < 0
-                        ? `L${Math.abs(Math.round(track.pan * 50))}`
-                        : `R${Math.round(track.pan * 50)}`}
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min={-1}
-                    max={1}
-                    step={0.05}
-                    value={track.pan}
-                    onChange={(e) => onUpdateTrack(name, { pan: Number(e.target.value) })}
-                    className="w-full accent-zinc-400 h-1 bg-zinc-800 rounded-lg cursor-pointer"
-                  />
+                  {/* Solo */}
+                  <button
+                    onClick={() => onUpdateTrack(name, { solo: !isSoloed })}
+                    className={`w-5 h-5 rounded text-[9px] font-black font-mono flex items-center justify-center border transition-all ${
+                      isSoloed
+                        ? 'bg-amber-400 text-zinc-950 border-amber-300'
+                        : 'bg-zinc-900 border-white/10 text-zinc-400 hover:text-white'
+                    }`}
+                    title="Solo Track"
+                  >
+                    S
+                  </button>
                 </div>
               </div>
-            );
-          })}
-        </div>
+
+              {/* Volume */}
+              <div className="space-y-0.5">
+                <div className="flex items-center justify-between text-[10px] text-zinc-400 font-mono">
+                  <span>Vol</span>
+                  <span>{Math.round(track.volume * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={1.2}
+                  step={0.01}
+                  value={track.volume}
+                  onChange={(e) => onUpdateTrack(name, { volume: Number(e.target.value) })}
+                  className="w-full accent-amber-400 h-1 bg-zinc-800 rounded-lg cursor-pointer"
+                />
+              </div>
+
+              {/* Pan Slider */}
+              <div className="hidden sm:block space-y-0.5">
+                <div className="flex items-center justify-between text-[10px] text-zinc-500 font-mono">
+                  <span>Pan</span>
+                  <span>
+                    {track.pan === 0
+                      ? 'C'
+                      : track.pan < 0
+                      ? `L${Math.abs(Math.round(track.pan * 50))}`
+                      : `R${Math.round(track.pan * 50)}`}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={-1}
+                  max={1}
+                  step={0.05}
+                  value={track.pan}
+                  onChange={(e) => onUpdateTrack(name, { pan: Number(e.target.value) })}
+                  className="w-full accent-zinc-400 h-1 bg-zinc-800 rounded-lg cursor-pointer"
+                />
+              </div>
+            </div>
+          );
+        })}
       </div>
+    </div>
+  );
+};
+
+export interface TransportMixerProps extends StickyTransportProps, StemMixerProps {}
+
+export const TransportMixer: React.FC<TransportMixerProps> = (props) => {
+  return (
+    <div className="space-y-4">
+      <StickyTransport {...props} />
+      <StemMixer tracks={props.tracks} onUpdateTrack={props.onUpdateTrack} />
     </div>
   );
 };

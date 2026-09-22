@@ -1,26 +1,29 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { DEFAULT_DICE, OPTIONAL_DICE } from './services/diceConfig';
-import { SongArrangement, DieConfig, VibeModifiers, TrackMixerChannel } from './types/music';
+import { SongArrangement, DieConfig, VibeModifiers, TrackMixerChannel, YouTubeTrackItem } from './types/music';
 import { composeArrangementFromState } from './services/fallbackArranger';
+import { composeArrangementFromPrompt } from './services/proArranger';
 import { audioEngine } from './services/audioEngine';
 import { Header } from './components/Header';
 import { DiceTable } from './components/DiceTable';
+import { YouTubeSongArranger } from './components/YouTubeSongArranger';
 import { PianoChordTabPanel } from './components/PianoChordTabPanel';
 import { ArrangementSummaryCard } from './components/ArrangementSummaryCard';
 import { ArrangementVisualizer } from './components/ArrangementVisualizer';
-import { TransportMixer } from './components/TransportMixer';
+import { StickyTransport, StemMixer } from './components/TransportMixer';
+import { CollapsibleSection } from './components/CollapsibleSection';
 import { VocalBooth } from './components/VocalBooth';
 import { ExportPanel } from './components/ExportPanel';
 import { RefinementBar } from './components/RefinementBar';
 import { HistoryModal } from './components/HistoryModal';
 import { TourModal } from './components/TourModal';
-import { Wand2, Mic, Download } from 'lucide-react';
+import { Wand2, Mic, Download, Dice5, Youtube, Music, FileMusic, Sliders, Headphones, Layers } from 'lucide-react';
 import { landProduceOrLocal, AI_MISSED_TOAST, AI_GENERATING_LABEL } from './audio/doorPlayback.ts';
 
 export function App() {
   const [dice, setDice] = useState<DieConfig[]>(DEFAULT_DICE);
   const [optionalDice, setOptionalDice] = useState<DieConfig[]>(OPTIONAL_DICE);
-  const [activeTab, setActiveTab] = useState<'dice' | 'piano_cover'>('dice');
+  const [activeTab, setActiveTab] = useState<'dice' | 'youtube_song' | 'piano_cover'>('youtube_song');
 
   const [currentArrangement, setCurrentArrangement] = useState<SongArrangement | null>(null);
   const [isRolling, setIsRolling] = useState<boolean>(false);
@@ -63,6 +66,39 @@ export function App() {
   const [heardCurrentTake, setHeardCurrentTake] = useState(false);
   const [keepNotice, setKeepNotice] = useState<string | null>(null);
   const [workbenchTab, setWorkbenchTab] = useState<'all' | 'export' | 'vocal' | 'refine'>('export');
+  
+  // Collapsible section states
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
+    generator: false,
+    summary: false,
+    visualizer: false,
+    mixer: false,
+    workbench: false,
+  });
+
+  const toggleSection = (id: string) => {
+    setCollapsedSections((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleExpandAll = () => {
+    setCollapsedSections({
+      generator: false,
+      summary: false,
+      visualizer: false,
+      mixer: false,
+      workbench: false,
+    });
+  };
+
+  const handleCollapseAll = () => {
+    setCollapsedSections({
+      generator: true,
+      summary: true,
+      visualizer: true,
+      mixer: true,
+      workbench: true,
+    });
+  };
 
   // Audio playback listener
   useEffect(() => {
@@ -173,6 +209,7 @@ export function App() {
       });
 
     let produced = null;
+    let failureReason: string | null = null;
     try {
       const response = await fetch('/api/generate-arrangement', {
         method: 'POST',
@@ -188,9 +225,11 @@ export function App() {
       const data = await response.json();
       if (data.success && data.source === 'ai' && data.arrangement) {
         produced = data.arrangement as SongArrangement;
+      } else {
+        failureReason = data.reason || null;
       }
-    } catch (err) {
-      console.warn('Gemini API call returned error or offline, using fallback arranger:', err);
+    } catch {
+      // Offline mode or network interruption
     }
 
     const landed = landProduceOrLocal(produced, localFallback);
@@ -200,8 +239,11 @@ export function App() {
     setSwing(landed.arrangement.swing);
     setTakeSource(landed.source);
     if (landed.missed) {
-      setAiMissedNotice(AI_MISSED_TOAST);
-      window.setTimeout(() => setAiMissedNotice(null), 3000);
+      const notice = failureReason === 'credits-depleted'
+        ? 'AI project credits depleted — rolled with Pro engine'
+        : AI_MISSED_TOAST;
+      setAiMissedNotice(notice);
+      window.setTimeout(() => setAiMissedNotice(null), 3500);
     }
     saveArrangementToHistory(landed.arrangement);
     setIsGenerating(false);
@@ -247,6 +289,71 @@ export function App() {
   // Generate Vocal Cover from Piano Chord Tab
   const handleGenerateCover = (tabText: string, stylePrompt: string, vocalRangeStr: string) => {
     triggerArrangementGeneration(undefined, tabText, `Production style: ${stylePrompt}. ${vocalRangeStr}`);
+  };
+
+  // Generate Arrangement from YouTube / YouTube Music search
+  const handleGenerateFromYouTube = async (
+    track: YouTubeTrackItem,
+    coverStyle: string,
+    shift: number
+  ) => {
+    setIsGenerating(true);
+    setAiMissedNotice(null);
+    setHeardCurrentTake(false);
+
+    const localFallback = () =>
+      composeArrangementFromPrompt({
+        youtubeQuery: track.title,
+        youtubeUrl: track.youtubeUrl,
+        songTitle: track.title,
+        artist: track.artist,
+        videoId: track.id,
+        refinementInstruction: coverStyle,
+        vocalRange: shift !== 0 ? `Vocal transpose: ${shift} semitones` : undefined,
+      });
+
+    let produced: SongArrangement | null = null;
+    let failureReason: string | null = null;
+    try {
+      const response = await fetch('/api/generate-arrangement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          youtubeQuery: track.title,
+          youtubeUrl: track.youtubeUrl,
+          songTitle: track.title,
+          artist: track.artist,
+          videoId: track.id,
+          refinementInstruction: coverStyle,
+          vocalRange: shift !== 0 ? `Vocal transpose: ${shift} semitones` : undefined,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success && data.source === 'ai' && data.arrangement) {
+        produced = data.arrangement as SongArrangement;
+      } else {
+        failureReason = data.reason || null;
+      }
+    } catch {
+      // Offline mode or network interruption
+    }
+
+    const landed = landProduceOrLocal(produced, localFallback);
+    setCurrentArrangement(landed.arrangement);
+    audioEngine.loadArrangement(landed.arrangement);
+    setBpm(landed.arrangement.bpm);
+    setSwing(landed.arrangement.swing);
+    setTakeSource(landed.source);
+    if (landed.missed) {
+      const notice = failureReason === 'credits-depleted'
+        ? 'AI project credits depleted — rolled with Pro engine'
+        : AI_MISSED_TOAST;
+      setAiMissedNotice(notice);
+      window.setTimeout(() => setAiMissedNotice(null), 3500);
+    }
+    saveArrangementToHistory(landed.arrangement);
+    setIsGenerating(false);
   };
 
   // Gemini Producer Refinement
@@ -363,27 +470,8 @@ export function App() {
       {/* Main Workspace */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
 
-        {(aiMissedNotice || keepNotice || isGenerating) && (
-          <div
-            className="text-center text-xs font-mono"
-            data-toast={aiMissedNotice ? 'ai-missed' : keepNotice ? 'kept' : 'generating'}
-          >
-            <span className="inline-flex rounded-full bg-white/10 px-3 py-1 text-amber-200">
-              {aiMissedNotice || keepNotice || AI_GENERATING_LABEL}
-            </span>
-          </div>
-        )}
-
-        <ArrangementVisualizer
-          arrangement={currentArrangement}
-          currentBeat={currentBeat}
-          currentBar={currentBar}
-          totalBeats={(currentArrangement?.bars_total || 8) * 4}
-          isPlaying={isPlaying}
-          onSeek={handleSeek}
-        />
-
-        <TransportMixer
+        {/* STICKY MASTER TRANSPORT & PLAYBACK CONTROLS (STICKS TO TOP WHEN SCROLLING) */}
+        <StickyTransport
           isPlaying={isPlaying}
           onPlay={handlePlay}
           onPause={handlePause}
@@ -410,114 +498,265 @@ export function App() {
             setIsMetronomeOn(on);
             audioEngine.setMetronome(on);
           }}
-          tracks={tracks}
-          onUpdateTrack={handleUpdateTrack}
+          currentBar={currentBar}
+          currentBeat={currentBeat}
+          totalBars={currentArrangement?.bars_total || 8}
+          onToggleMixerSection={() => toggleSection('mixer')}
+          isMixerCollapsed={collapsedSections.mixer}
+          onExpandAll={handleExpandAll}
+          onCollapseAll={handleCollapseAll}
+          allCollapsed={Object.values(collapsedSections).every(Boolean)}
         />
 
-        {activeTab === 'dice' && (
-          <DiceTable
-            dice={dice}
-            optionalDice={optionalDice}
-            isRolling={isRolling}
-            isGenerating={isGenerating}
-            onToggleLock={handleToggleLock}
-            onRollAll={handleRollAll}
-            onRollUnlocked={handleRollUnlocked}
-            onSelectFace={handleSelectFace}
-            onToggleOptionalDie={handleToggleOptionalDie}
-            vibe={vibe}
-            setVibe={setVibe}
-          />
-        )}
-
-        {activeTab === 'piano_cover' && (
-          <PianoChordTabPanel
-            onGenerateCover={handleGenerateCover}
-            isGenerating={isGenerating}
-            vocalShift={vocalShift}
-            setVocalShift={setVocalShift}
-          />
-        )}
-
-        {currentArrangement && (
-          <ArrangementSummaryCard
-            arrangement={currentArrangement}
-            isFavorite={isCurrentFavorite}
-            onToggleFavorite={() => handleToggleFavorite()}
-            onSelectWorkflowTab={(tab) => setWorkbenchTab(tab)}
-          />
-        )}
-
-        {/* STUDIO WORKBENCH TOOLS & TAB BAR */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between flex-wrap gap-2 border-b border-white/10 pb-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs uppercase font-extrabold tracking-widest text-amber-400 font-mono">
-                STUDIO WORKBENCH
-              </span>
-              <span className="text-zinc-500">•</span>
-              <span className="text-xs text-zinc-400">Refine • Record Scratch Vocals • Export DAW MIDI</span>
-            </div>
-
-            {/* Workbench Segmented Control */}
-            <div className="flex items-center p-1 bg-zinc-900/90 rounded-xl border border-white/10 text-xs font-semibold">
-              <button
-                onClick={() => setWorkbenchTab('export')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
-                  workbenchTab === 'export'
-                    ? 'bg-amber-500 text-zinc-950 font-bold shadow'
-                    : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>DAW Export</span>
-              </button>
-
-              <button
-                onClick={() => setWorkbenchTab('vocal')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
-                  workbenchTab === 'vocal'
-                    ? 'bg-amber-500 text-zinc-950 font-bold shadow'
-                    : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                <Mic className="w-3.5 h-3.5" />
-                <span>Vocal Booth</span>
-              </button>
-
-              <button
-                onClick={() => setWorkbenchTab('refine')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
-                  workbenchTab === 'refine'
-                    ? 'bg-amber-500 text-zinc-950 font-bold shadow'
-                    : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                <Wand2 className="w-3.5 h-3.5" />
-                <span>AI Refine</span>
-              </button>
-            </div>
+        {(aiMissedNotice || keepNotice || isGenerating) && (
+          <div
+            className="text-center text-xs font-mono"
+            data-toast={aiMissedNotice ? 'ai-missed' : keepNotice ? 'kept' : 'generating'}
+          >
+            <span className="inline-flex rounded-full bg-white/10 px-3 py-1 text-amber-200">
+              {aiMissedNotice || keepNotice || AI_GENERATING_LABEL}
+            </span>
           </div>
+        )}
 
-          {/* Workbench Tool 1: AI Refinements */}
-          {(workbenchTab === 'all' || workbenchTab === 'refine') && (
-            <RefinementBar onRefine={handleRefine} isGenerating={isGenerating} />
-          )}
-
-          {/* Workbench Tool 2: Vocal Scratch Booth */}
-          {(workbenchTab === 'all' || workbenchTab === 'vocal') && (
-            <VocalBooth
-              isPlaying={isPlaying}
-              onStartPlayback={handlePlay}
-              onStopPlayback={handlePause}
+        {/* SECTION 1: SONG GENERATOR & CREATIVE SPARK */}
+        <CollapsibleSection
+          id="section-generator"
+          title={
+            activeTab === 'dice'
+              ? 'Song Dice Studio'
+              : activeTab === 'youtube_song'
+              ? 'YouTube Audio Reference'
+              : 'Piano Chord Tab Editor'
+          }
+          icon={
+            activeTab === 'dice' ? (
+              <Dice5 className="w-4 h-4 text-amber-400" />
+            ) : activeTab === 'youtube_song' ? (
+              <Youtube className="w-4 h-4 text-red-400" />
+            ) : (
+              <Music className="w-4 h-4 text-amber-400" />
+            )
+          }
+          badge={
+            activeTab === 'dice' ? (
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                {dice.filter((d) => d.isLocked).length} / {dice.length} Locked
+              </span>
+            ) : activeTab === 'youtube_song' ? (
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-red-500/10 text-red-300 border border-red-500/20">
+                Audio Reference
+              </span>
+            ) : (
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                Tab Parser
+              </span>
+            )
+          }
+          summaryWhenCollapsed={
+            activeTab === 'dice'
+              ? '7 Dice • Roll or lock layers'
+              : activeTab === 'youtube_song'
+              ? 'YouTube search & key transposition'
+              : 'Chord tab text editor'
+          }
+          isCollapsed={collapsedSections.generator}
+          onToggle={() => toggleSection('generator')}
+        >
+          {/* VIEW 1: YOUTUBE SONG ARRANGER */}
+          {activeTab === 'youtube_song' && (
+            <YouTubeSongArranger
+              onGenerateFromYouTube={handleGenerateFromYouTube}
+              isGenerating={isGenerating}
+              vocalShift={vocalShift}
+              setVocalShift={setVocalShift}
+              onSwitchToManualTab={() => setActiveTab('piano_cover')}
             />
           )}
 
-          {/* Workbench Tool 3: DAW Multitrack MIDI & Stem Export */}
-          {(workbenchTab === 'all' || workbenchTab === 'export') && (
-            <ExportPanel arrangement={currentArrangement} />
+          {/* VIEW 2: DICE STUDIO TABLE */}
+          {activeTab === 'dice' && (
+            <DiceTable
+              dice={dice}
+              optionalDice={optionalDice}
+              isRolling={isRolling}
+              isGenerating={isGenerating}
+              onToggleLock={handleToggleLock}
+              onRollAll={handleRollAll}
+              onRollUnlocked={handleRollUnlocked}
+              onSelectFace={handleSelectFace}
+              onToggleOptionalDie={handleToggleOptionalDie}
+              vibe={vibe}
+              setVibe={setVibe}
+            />
           )}
-        </div>
+
+          {/* VIEW 3: PIANO CHORD TAB & VOCAL COVER GENERATOR */}
+          {activeTab === 'piano_cover' && (
+            <PianoChordTabPanel
+              onGenerateCover={handleGenerateCover}
+              isGenerating={isGenerating}
+              vocalShift={vocalShift}
+              setVocalShift={setVocalShift}
+              onSwitchToYouTube={() => setActiveTab('youtube_song')}
+            />
+          )}
+        </CollapsibleSection>
+
+        {/* SECTION 2: ARRANGED BRIEF & HARMONIC PROGRESSION */}
+        {currentArrangement && (
+          <CollapsibleSection
+            id="section-summary"
+            title="Arrangement & Harmony"
+            icon={<FileMusic className="w-4 h-4 text-amber-400" />}
+            badge={
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                {currentArrangement.key} {currentArrangement.mode} • {currentArrangement.bpm} BPM
+              </span>
+            }
+            summaryWhenCollapsed={
+              <span>
+                "{currentArrangement.title_working}" • {currentArrangement.bars_total} Bars
+              </span>
+            }
+            isCollapsed={collapsedSections.summary}
+            onToggle={() => toggleSection('summary')}
+          >
+            <ArrangementSummaryCard
+              arrangement={currentArrangement}
+              isFavorite={isCurrentFavorite}
+              onToggleFavorite={() => handleToggleFavorite()}
+              onSelectWorkflowTab={(tab) => {
+                setWorkbenchTab(tab);
+                setCollapsedSections((prev) => ({ ...prev, workbench: false }));
+              }}
+            />
+          </CollapsibleSection>
+        )}
+
+        {/* SECTION 3: PIANO ROLL & MULTI-TRACK TIMELINE */}
+        <CollapsibleSection
+          id="section-visualizer"
+          title="Multi-Track Piano Roll"
+          icon={<Music className="w-4 h-4 text-amber-400" />}
+          badge={
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">
+              {currentArrangement?.bars_total || 8} Bars
+            </span>
+          }
+          summaryWhenCollapsed="Interactive timeline (Melody, Keys, Bass, Drums)"
+          isCollapsed={collapsedSections.visualizer}
+          onToggle={() => toggleSection('visualizer')}
+        >
+          <ArrangementVisualizer
+            arrangement={currentArrangement}
+            currentBeat={currentBeat}
+            currentBar={currentBar}
+            totalBeats={(currentArrangement?.bars_total || 8) * 4}
+            isPlaying={isPlaying}
+            onSeek={handleSeek}
+          />
+        </CollapsibleSection>
+
+        {/* SECTION 4: STUDIO TOOLS & DAW EXPORT (EXPORT • REFINE • VOCALS) */}
+        <CollapsibleSection
+          id="section-workbench"
+          title="DAW Export & Studio Tools"
+          icon={<Download className="w-4 h-4 text-amber-400" />}
+          badge={
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">
+              MIDI • Refine • Vocals
+            </span>
+          }
+          summaryWhenCollapsed={
+            workbenchTab === 'export'
+              ? 'DAW Multitrack MIDI & Stems'
+              : workbenchTab === 'vocal'
+              ? 'Vocal Scratch Booth'
+              : 'AI Arrangement Refinements'
+          }
+          isCollapsed={collapsedSections.workbench}
+          onToggle={() => toggleSection('workbench')}
+        >
+          <div className="space-y-3">
+            {/* Workbench Segmented Control */}
+            <div className="flex items-center justify-between pb-2 border-b border-white/10">
+              <div className="flex items-center p-1 bg-zinc-950/80 rounded-xl border border-white/10 text-xs font-semibold">
+                <button
+                  onClick={() => setWorkbenchTab('export')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+                    workbenchTab === 'export'
+                      ? 'bg-amber-500 text-zinc-950 font-bold shadow'
+                      : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>DAW Export</span>
+                </button>
+
+                <button
+                  onClick={() => setWorkbenchTab('refine')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+                    workbenchTab === 'refine'
+                      ? 'bg-amber-500 text-zinc-950 font-bold shadow'
+                      : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  <Wand2 className="w-3.5 h-3.5" />
+                  <span>AI Refine</span>
+                </button>
+
+                <button
+                  onClick={() => setWorkbenchTab('vocal')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+                    workbenchTab === 'vocal'
+                      ? 'bg-amber-500 text-zinc-950 font-bold shadow'
+                      : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  <Mic className="w-3.5 h-3.5" />
+                  <span>Vocal Booth</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Workbench Tool: DAW Multitrack MIDI & Stem Export */}
+            {workbenchTab === 'export' && (
+              <ExportPanel arrangement={currentArrangement} />
+            )}
+
+            {/* Workbench Tool: AI Refinements */}
+            {workbenchTab === 'refine' && (
+              <RefinementBar onRefine={handleRefine} isGenerating={isGenerating} />
+            )}
+
+            {/* Workbench Tool: Vocal Scratch Booth */}
+            {workbenchTab === 'vocal' && (
+              <VocalBooth
+                isPlaying={isPlaying}
+                onStartPlayback={handlePlay}
+                onStopPlayback={handlePause}
+              />
+            )}
+          </div>
+        </CollapsibleSection>
+
+        {/* SECTION 5: 5-CHANNEL MULTI-TRACK STEM MIXER */}
+        <CollapsibleSection
+          id="section-mixer"
+          title="Stem Mixer"
+          icon={<Sliders className="w-4 h-4 text-amber-400" />}
+          badge={
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">
+              5 Channels
+            </span>
+          }
+          summaryWhenCollapsed="Lead, Keys, Pad, Bass & Drum Faders"
+          isCollapsed={collapsedSections.mixer}
+          onToggle={() => toggleSection('mixer')}
+        >
+          <StemMixer tracks={tracks} onUpdateTrack={handleUpdateTrack} />
+        </CollapsibleSection>
       </main>
 
       {/* History Drawer Modal */}

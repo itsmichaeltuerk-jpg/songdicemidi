@@ -126,22 +126,19 @@ export const ArrangementVisualizer: React.FC<ArrangementVisualizerProps> = ({
   });
 
   return (
-    <div className="relative w-full bg-zinc-950/90 rounded-2xl border border-white/10 p-3 shadow-xl" data-piano-roll="">
+    <div className="relative w-full bg-[#14151C]/90 rounded-2xl border border-white/10 p-3.5 shadow-xl" data-piano-roll="">
       <div className="flex items-center justify-between mb-2 text-xs">
-        <span className="font-bold text-white uppercase tracking-wider font-mono text-[11px]">Piano roll</span>
-        <span className="text-amber-400 font-mono font-bold">
+        <span className="font-bold text-zinc-300 uppercase tracking-wider font-mono text-[10px]">Multi-Track Roll</span>
+        <span className="text-amber-400 font-mono font-bold text-xs">
           Bar {currentBar} / {barsTotal}
         </span>
       </div>
-      <p className="mb-2 text-[11px] text-zinc-500">
-        Compact mix lanes · tap the timeline to seek · Hear uses the Door engine
-      </p>
       <div className="grid items-stretch" style={{ gridTemplateColumns: '2.6rem 1fr' }}>
-        <div className="overflow-hidden rounded-l-md border border-white/8 bg-[#121214]">
+        <div className="overflow-hidden rounded-l-md border border-white/10 bg-[#101115]">
           {COLLAPSED_LANES.map((lane) => (
             <div
               key={lane}
-              className="flex items-center border-b border-white/6 px-1 font-mono text-[9px] text-white/55"
+              className="flex items-center border-b border-white/5 px-1.5 font-mono text-[9px] text-zinc-400"
               style={{ height: COLLAPSED_LANE_H }}
             >
               {LANE_LABEL[lane]}
@@ -149,7 +146,7 @@ export const ArrangementVisualizer: React.FC<ArrangementVisualizerProps> = ({
           ))}
         </div>
         <div
-          className="relative cursor-pointer overflow-hidden rounded-r-md border border-l-0 border-white/8 bg-zinc-950"
+          className="relative cursor-pointer overflow-hidden rounded-r-md border border-l-0 border-white/10 bg-zinc-950"
           style={{ height }}
           data-piano-grid="all"
           onClick={handleGridClick}
@@ -158,7 +155,7 @@ export const ArrangementVisualizer: React.FC<ArrangementVisualizerProps> = ({
             {Array.from({ length: barsTotal }).map((_, barIdx) => (
               <div
                 key={barIdx}
-                className={`h-full border-r ${barIdx % 2 === 0 ? 'border-white/15' : 'border-white/8'}`}
+                className={`h-full border-r ${barIdx % 2 === 0 ? 'border-white/15' : 'border-white/5'}`}
               />
             ))}
           </div>
@@ -183,7 +180,7 @@ export const ArrangementVisualizer: React.FC<ArrangementVisualizerProps> = ({
               isPlaying ? 'opacity-100' : 'opacity-40'
             }`}
           >
-            <div className="w-2.5 h-2.5 bg-amber-400 rounded-full -ml-[4px] -mt-1" />
+            <div className="w-2 h-2 bg-amber-400 rounded-full -ml-[3px] -mt-0.5" />
           </div>
         </div>
       </div>
